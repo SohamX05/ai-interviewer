@@ -3,9 +3,13 @@ import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
 
-load_dotenv() #loads the PI Key from .env
+load_dotenv(dotenv_path=".env") #loads the PI Key from .env
 
-api_key = os.getenv("GROK_API_KEY")
+api_key = os.getenv("GROQ_API_KEY")
+
+if not api_key:
+    st.error("API KEY NOT FOUND")
+    st.stop()
 
 client = Groq(api_key=api_key) #initialize the client
 
@@ -13,7 +17,12 @@ def get_ai_feedback(question, user_answer): #setting up conversation history and
     messages = [
         {
             "role": "system",
-            "content": "You are a senior software engineer conducting a technical interview. Keep your feedback concise, constructive and strictly focus on technical accuracy."
+            "content": """You are an expert technical interviewer.
+            Analyze the candidate's answer for:
+            1. Technical accuracy.
+            2. Completeness(what did they miss?).
+            3. Clarity and communication style(was it a clear answer? was it professional?).
+            Provide a 'Score' out of 10 and then give detailed 'Strengths' and 'Areas for Improvements'."""
         },
         {
             "role": "user",
@@ -24,7 +33,8 @@ def get_ai_feedback(question, user_answer): #setting up conversation history and
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
-        max_tokens=200
+        max_tokens=600,
+        temperature=0.7
     )
     
     #returns the feedback
