@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import random
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -40,16 +41,50 @@ def get_ai_feedback(question, user_answer): #setting up conversation history and
     #returns the feedback
     return response.choices[0].message.content
 
+#setting up the question
+question = {
+    "Java": [
+        "Difference between Abstract Class and Interface",
+        "Explain the 'fail-fast' vs 'fail-safe' iterator.",
+        "How does garbage collection work in Java?" 
+    ],
+    "OS": [
+        "Explain Paging vs Segmentation",
+        "What are the four conditions for deadlocks?",
+        "Difference between a Process and a Thread"
+    ],
+    "Machine Learning": [
+        "Explain the bias-variance tradeoff.",
+        "How does a Convolutional Neural Network(CNN) work?",
+        "What is the difference between L1 and L2 regularization?"
+    ]
+}
+
+#topic selection
+with st.sidebar:
+    st.title("Settings")
+    topic = st.selectbox("Select Topic: ", question.keys())
+
+    #resets the question
+    if st.button("Generate New Question"):
+        st.session_state.current_question = random.choice(question[topic])
+        #clear previous feedback while getting a new question
+        if "feedback" in st.session_state:
+            del st.session_state.feedback
+
+#initializing first question, if i doee'nt exist
+if 'current_question' not in st.session_state:
+    st.session_state.current_question = random.choice(question[topic])
+
+st.subheader(f"Topic: {topic}")
+st.info(f"Current Question: {st.session_state.current_question}")
+
 #Streamlit UI
 st.title("AI Interviewer")
 st.divider()
 
-#setting up the question
-question = "Can you explain the difference between an Interface and an Abstract Class in Java?"
-st.markdown(f"**Interviewer**: {question}")
-
 #Creates a text box for user to answer
-user_answer = st.text_area("Your Answer: ", height=150)
+user_answer = st.text_area("Your Answer: ", height=150, placeholder="Type your answer here...")
 
 #Creating a submit button
 if st.button("Submit Answer"):
@@ -60,3 +95,4 @@ if st.button("Submit Answer"):
             st.write(feedback) #Displays the feedback
     else:
         st.warning("Please enter your answer before submitting!")
+
