@@ -16,7 +16,16 @@ client = Groq(api_key=api_key) #initialize the client
 
 def get_next_question(topic, history):
     messages = [
-        {"role": "system", "content": f"you are a technical interviewer for topic {topic}. Ask one specific question related to topic {topic}. Do not explain the history or give introductury text. Also don't explain while asking the questions. you just ask questions and at last give a score out of 10 on each questions. Use history to ask follow-ups"}
+        {
+            "role": "system", 
+            "content": f"""You are a strict technical interviewer for {topic}. 
+            Your ONLY job is to ask the next question. 
+            DO NOT give feedback on the previous answer. 
+            DO NOT say 'Correct' or 'Good job'.
+            If the candidate answered well, ask a harder follow-up. 
+            If they struggled, ask a different fundamental question.
+            ONLY output the question text."""
+        }
     ]
     #The memory loop
     for item in history:
@@ -26,9 +35,28 @@ def get_next_question(topic, history):
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
-        max_tokens=150    
+        max_tokens=350    
     )
 
+    return response.choices[0].message.content
+
+def get_final_evaluation(topic, history):
+    transcript = ""
+    for i, item in enumerate(history):
+        transcript += f"Q{i+1}: {item['question']}\nA{i+1}: {item['answer']}\n\n"
+    
+    messages = [
+        {
+            "role": "system", 
+            "content": f"You are a senior hiring manager. Evaluate this {topic} interview transcript. Provide a Score (out of 10), Strengths, and Areas for Improvement."
+        },
+        {"role": "user", "content": transcript}
+    ]
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=messages,
+        max_tokens=850
+    )
     return response.choices[0].message.content
 
 #The Memory(Session State)
@@ -69,5 +97,36 @@ if st.session_state.step <= 5:
             st.warning("Please provide answer before submitting.")
 else:
     st.header("Final Results: ")
-    
 
+    if st.session_state.chat_history:
+        with st.spinner("Analyzing your performance accross all 5 questions..."):
+            report = get_final_evaluation(subject, st.session_state.chat_history)
+            st.markdown(report)
+            st.download_button("Download Report", str(st.session_state.chat_history))
+
+    else:
+        st.write("No interview data found. Please start a new session.")
+
+    if st.button("Start New Interview"):
+        for key in st.session_state.keys():
+            del st.session_state[key]
+        st.rerun()
+    
+def get_final_evaluation(topic, history):
+    transcript = ""
+    for i, item in enumerate(history):
+        transcript += f"Q{i+1}: {item['question']}\nA{i+1}: {item['answer']}\n\n"
+    
+    messages = [
+        {
+            "role": "system", 
+            "content": f"You are a senior hiring manager. Evaluate this {topic} interview transcript. Provide a Score (out of 10), Strengths, and Areas for Improvement."
+        },
+        {"role": "user", "content": transcript}
+    ]
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=messages,
+        max_tokens=850
+    )
+    return response.choices[0].message.content
