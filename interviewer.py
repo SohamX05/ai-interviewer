@@ -22,17 +22,25 @@ if not api_key:
 
 client = Groq(api_key=api_key) #initialize the client
 
-def get_next_question(topic, history):
-    messages = [
-        {
-            "role": "system", 
-            "content": f"""Either You are a strict technical interviewer for {topic} or you are interviewing the candidate on based on their resume. 
+def get_next_question(topic_or_resume, history, is_resume=False):
+    if is_resume:
+        system_task = f"""You are a recruiter interviewing a candidate based on their resume. 
+        Resume Content: {topic_or_resume}
+        Ask ONE specific technical question about their projects, skills, or experiences listed. 
+        Make follow-up questions deeper based on their previous answers."""
+    else:
+        system_task = f"""Either You are a strict technical interviewer for {topic_or_resume}. 
             Your ONLY job is to ask the next question. 
             DO NOT give feedback on the previous answer. 
             DO NOT say 'Correct' or 'Good job'.
             If the candidate answered well, ask a harder follow-up. 
             If they struggled, ask a different fundamental question.
             ONLY output the question text."""
+
+    messages = [
+        {
+            "role": "system", 
+            "content": system_task
         }
     ]
     #The memory loop
@@ -113,9 +121,9 @@ if st.session_state.step <= total_questions:
         with st.spinner("Generating question..."):
             if mode == "Resume-based" and 'resume_text' in st.session_state:
                 context = f"The candidate's resume: {st.session_state.resume_text}"
-                st.session_state.current_question = get_next_question(context, st.session_state.chat_history)
+                st.session_state.current_question = get_next_question(context, st.session_state.chat_history, is_resume=True)
             else:
-                st.session_state.current_question = get_next_question(subject, st.session_state.chat_history)
+                st.session_state.current_question = get_next_question(subject, st.session_state.chat_history, is_resume=False)
 
     st.info(st.session_state.current_question)
 
@@ -134,7 +142,10 @@ else:
 
     if st.session_state.chat_history:
         with st.spinner("Analyzing your performance accross all 5 questions..."):
-            report = get_final_evaluation(subject, st.session_state.chat_history)
+            if mode == "Resume-Based":
+                report = get_final_evaluation(st.session_state.resume_text, st.session_state.chat_history, is_resume=True)
+            else:
+                report = get_final_evaluation(subject, st.session_state.chat_history, is_resume=False)
             st.markdown(report)
             st.download_button("Download Report", str(st.session_state.chat_history))
 
@@ -146,18 +157,27 @@ else:
             del st.session_state[key]
         st.rerun()
     
-def get_final_evaluation(topic, history):
+def get_final_evaluation(topic_or_resume, history, is_resume=False):
     transcript = ""
     for i, item in enumerate(history):
         transcript += f"Q{i+1}: {item['question']}\nA{i+1}: {item['answer']}\n\n"
     
+    if is_resume:
+        role_desc = "Evaluate if the candidate's answers back up the claims made in their resume."
+    else:
+        role_desc = f"Evaluate the candidate's technical knowledge of {topic_or_resume}."
+
     messages = [
         {
             "role": "system", 
-            "content": f"You are a senior hiring manager. Evaluate this {topic} interview transcript. Provide a Score (out of 10), Strengths, and Areas for Improvement."
+            "content": f"You are a senior hiring manager. Evaluate this {role_desc} interview transcript. Provide a Score (out of 10), Strengths, and Areas for Improvement."
         },
-        {"role": "user", "content": transcript}
+        {
+            "role": "user", 
+            "content": transcript
+        }
     ]
+
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
