@@ -3,6 +3,14 @@ import streamlit as st
 import random
 from dotenv import load_dotenv
 from groq import Groq
+from PyPDF2 import PdfReader
+
+def extract_text_from_pdf(pdf_file):
+    reader = PdfReader(pdf_file)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text()
+    return text
 
 load_dotenv(dotenv_path=".env") #loads the PI Key from .env
 
@@ -18,7 +26,7 @@ def get_next_question(topic, history):
     messages = [
         {
             "role": "system", 
-            "content": f"""You are a strict technical interviewer for {topic}. 
+            "content": f"""Either You are a strict technical interviewer for {topic} or you are interviewing the candidate on based on their resume. 
             Your ONLY job is to ask the next question. 
             DO NOT give feedback on the previous answer. 
             DO NOT say 'Correct' or 'Good job'.
@@ -68,20 +76,46 @@ if 'step' not in st.session_state:
 #UI
 with st.sidebar:
     st.title("Settings")
-    subject = st.selectbox("Choose a topic: ", ["Java", "Python", "Machine Learning", "Operating Systems", "DBMS", "Data Structures and Algorithms"])
 
-    if st.button("Reset and change topic"):
-        for key in st.session_state.keys():
-            del st.session_state[key]
-        st.rerun()
+    mode = st.radio("Choose interview mode: ", ["Topic-Based", "Resume-Based"])
 
+    if mode == "Topic-Based":
+        subject = st.selectbox("Choose a topic: ", ["Java", "Python", "Machine Learning", "Operating Systems", "DBMS", "Data Structures and Algorithms"])
+        
+        if st.button("Reset and change topic"):
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            st.rerun()
+            
+        if st.button("Restart Interview"):
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            st.rerun()
+
+    else:
+        uploaded_file = st.file_uploader("Upload your Resume/CV (PDF): ", type="pdf")
+        if uploaded_file and 'resume_text' not in st.session_state:
+            st.session_state.resume_text = extract_text_from_pdf(uploaded_file)
+            st.success("Resume Uploaded")
+
+        if st.button("Restart Interview"):
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            st.rerun()
+    
 #Interview Loop
-if st.session_state.step <= 5:
+total_questions = 10 if mode == "Resume-Based" else 5
+if st.session_state.step <= total_questions:
+    st.progress(st.session_state.step / total_questions)
     st.subheader(f"Question {st.session_state.step}")
 
     if not st.session_state.current_question:
         with st.spinner("Generating question..."):
-            st.session_state.current_question = get_next_question(subject, st.session_state.chat_history)
+            if mode == "Resume-based" and 'resume_text' in st.session_state:
+                context = f"The candidate's resume: {st.session_state.resume_text}"
+                st.session_state.current_question = get_next_question(context, st.session_state.chat_history)
+            else:
+                st.session_state.current_question = get_next_question(subject, st.session_state.chat_history)
 
     st.info(st.session_state.current_question)
 
