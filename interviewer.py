@@ -75,17 +75,26 @@ def get_final_evaluation(topic, history):
     )
     return response.choices[0].message.content
 
-#The Memory(Session State)
-if 'step' not in st.session_state:
-    st.session_state.step = 1       #Tracks the current no of question
-    st.session_state.chat_history = []      #Stores History[{q1, a1}, {q2, a2}...]
-    st.session_state.current_question = ""      #Stores the specific question text
 
 #UI
 with st.sidebar:
     st.title("Settings")
 
     mode = st.radio("Choose interview mode: ", ["Topic-Based", "Resume-Based"])
+
+    #The Memory(Session State)
+    if 'step' not in st.session_state:
+        st.session_state.step = 1       #Tracks the current no of question
+        st.session_state.chat_history = []      #Stores History[{q1, a1}, {q2, a2}...]
+        st.session_state.current_question = ""      #Stores the specific question text
+        st.session_state.last_mode = mode
+
+    if st.session_state.last_mode != mode:
+        st.session_state.step = 1       #Tracks the current no of question
+        st.session_state.chat_history = []      #Stores History[{q1, a1}, {q2, a2}...]
+        st.session_state.current_question = ""      #Stores the specific question text
+        st.session_state.last_mode = mode
+        st.rerun()
 
     if mode == "Topic-Based":
         subject = st.selectbox("Choose a topic: ", ["Java", "Python", "Machine Learning", "Operating Systems", "DBMS", "Data Structures and Algorithms"])
@@ -119,10 +128,13 @@ if st.session_state.step <= total_questions:
 
     if not st.session_state.current_question:
         with st.spinner("Generating question..."):
-            if mode == "Resume-based" and 'resume_text' in st.session_state:
-                context = f"The candidate's resume: {st.session_state.resume_text}"
-                st.session_state.current_question = get_next_question(context, st.session_state.chat_history, is_resume=True)
-            else:
+            if mode == "Resume-Based": 
+                if 'resume_text' in st.session_state:
+                    context = st.session_state.resume_text
+                    st.session_state.current_question = get_next_question(context, st.session_state.chat_history, is_resume=True)
+                else:
+                    st.warning("Please upload a resume in the sidebar to begin.")
+                    st.stop() # Stops execution so it doesn't try to find 'subject'
                 st.session_state.current_question = get_next_question(subject, st.session_state.chat_history, is_resume=False)
 
     st.info(st.session_state.current_question)
