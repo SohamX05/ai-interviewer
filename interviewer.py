@@ -66,7 +66,7 @@ def get_final_evaluation(topic_or_resume, history, is_resume=False):
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=messages,
-        max_tokens=850
+        max_tokens=1000
     )
     return response.choices[0].message.content
 
@@ -103,7 +103,33 @@ with st.sidebar:
         st.rerun()
 
     if mode == "Topic-Based":
-        subject = st.selectbox("Choose a topic:", ["Java", "Python", "Machine Learning", "Operating Systems", "DBMS", "Data Structures and Algorithms"])
+        selected_subject = st.selectbox("Choose a topic:", ["Java", "Python", "Machine Learning", "Operating Systems", "DBMS", "Data Structures and Algorithms", "System Design", "Other (Custom Topic)"])
+        
+        if selected_subject == "Other (Custom Topic)":
+            # 1. Capture the custom input
+            custom_input = st.text_input("Enter your Topic:", placeholder="e.g. React, PyTorch etc.")
+            
+            # 2. Safety check: Only update 'subject' if they actually typed something
+            if custom_input:
+                subject = custom_input
+                
+                # 3. CRITICAL: If the subject changed, we must clear the old question
+                if 'last_topic' not in st.session_state or st.session_state.last_topic != subject:
+                    st.session_state.current_question = ""
+                    st.session_state.step = 1
+                    st.session_state.chat_history = []
+                    st.session_state.last_topic = subject
+            else:
+                # Placeholder so the app doesn't crash while they are still typing
+                subject = "General Technology" 
+        else:
+            subject = selected_subject
+            # Reset if they switch from 'Other' back to a standard topic
+            if 'last_topic' in st.session_state and st.session_state.last_topic != subject:
+                st.session_state.current_question = ""
+                st.session_state.step = 1
+                st.session_state.chat_history = []
+                st.session_state.last_topic = subject
     else:
         uploaded_file = st.file_uploader("Upload your Resume/CV (PDF):", type="pdf")
         if uploaded_file and 'resume_text' not in st.session_state:
