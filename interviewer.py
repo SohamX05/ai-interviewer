@@ -3,6 +3,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
 from PyPDF2 import PdfReader
+import plotly.graph_objects as go
 
 # --- 1. CORE FUNCTIONS ---
 
@@ -200,3 +201,17 @@ else:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
+def display_radar_chart(scores):
+    categories = ["Accuracy", "Logic", "Communication", "Optimization", "Depth"]
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=scores,
+        theta=categories,
+        fill='toself',
+        name='Interview Performance'
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
+        showLegend=False
+    )
+    st.plotly_chart(fig)
